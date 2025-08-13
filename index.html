@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>錄音系統</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(120deg, #f8fafc 0%, #e0e7ff 100%);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .main-layout {
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            align-items: stretch;
+            width: 100%;
+            max-width: 900px;
+            margin-top: 80px;
+            gap: 32px;
+        }
+        .container, .workspace {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            width: 360px;
+            min-width: 360px;
+            max-width: 360px;
+            min-height: 540px;
+            height: 540px;
+            padding: 40px 32px;
+        }
+        .container {
+            text-align: center;
+        }
+        .workspace {
+            background: #f1f5f9;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+            margin-left: 0;
+        }
+        .workspace label {
+            font-size: 1rem;
+            color: #475569;
+            margin-bottom: 8px;
+            text-align: left;
+        }
+        .workspace select {
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #4f46e5;
+            margin-bottom: 24px;
+        }
+        button {
+            background: #bae6fd;
+            color: #0c4a6e;
+            border: none;
+            border-radius: 8px;
+            padding: 7px 18px;
+            font-size: 1rem;
+            cursor: pointer;
+            margin: 10px 0;
+            transition: 0.2s;
+        }
+        #recordBtn, #stopBtn {
+            width: 48%;
+            min-width: 80px;
+            max-width: 120px;
+            display: inline-block;
+            margin: 10px 1%;
+        }
+        .rec-btn-group {
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+        }
+        button:active {
+            color: #3c5c8d;
+        }
+        button:hover {
+            background: #c4d8ed;
+        }
+        .status {
+            margin: 18px 0 0 0;
+            color: #0f428e;
+            font-size: 1rem;
+        }
+        audio {
+            margin-top: 20px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-layout">
+        <div class="container">
+            <h1>錄音系統</h1>
+            <div class="rec-btn-group">
+                <button id="recordBtn">開始錄音</button>
+                <button id="stopBtn" disabled>停止錄音</button>
+            </div>
+            <div class="status" id="status">請按下「開始錄音」</div>
+            <audio id="audioPlayback" controls style="display:none;"></audio>
+            <button id="downloadMp3Btn" style="display:none; margin-top: 12px;">下載mp3</button>
+        </div>
+        <div class="workspace">
+            <label for="textFileSelect">選擇文字檔：</label>
+            <select id="textFileSelect">
+                <option value="">-- 請選擇 --</option>
+                <option value="file1.txt">file1.txt</option>
+                <option value="file2.txt">file2.txt</option>
+            </select>
+            <div id="transcribeSection" style="margin-top:12px;">
+                <button id="transcribeBtn">錄音轉文字</button>
+                <div id="transcribeResult" style="margin-top:16px; color:#334155; min-height: 160px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; padding: 18px; text-align: left; font-size: 1.15rem; line-height: 1.7;"></div>
+            </div>
+        </div>
+    </div>
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+        const recordBtn = document.getElementById('recordBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const status = document.getElementById('status');
+        const audioPlayback = document.getElementById('audioPlayback');
+        const downloadMp3Btn = document.getElementById('downloadMp3Btn');
+        const transcribeSection = document.getElementById('transcribeSection');
+        const transcribeBtn = document.getElementById('transcribeBtn');
+        const transcribeResult = document.getElementById('transcribeResult');
+        const textFileSelect = document.getElementById('textFileSelect');
+
+        // 預設顯示空白，區域始終存在
+        transcribeResult.textContent = '';
+
+        recordBtn.onclick = async () => {
+            if (!navigator.mediaDevices) {
+                status.textContent = '瀏覽器不支援錄音功能';
+                return;
+            }
+            recordBtn.disabled = true;
+            stopBtn.disabled = false;
+            status.textContent = '錄音中...';
+            audioPlayback.style.display = 'none';
+            downloadMp3Btn.style.display = 'none';
+            audioChunks = [];
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            mediaRecorder.ondataavailable = e => {
+                if (e.data.size > 0) audioChunks.push(e.data);
+            };
+            mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                audioPlayback.src = URL.createObjectURL(audioBlob);
+                audioPlayback.style.display = 'block';
+                status.textContent = '錄音完成';
+                downloadMp3Btn.style.display = 'inline-block';
+            };
+            mediaRecorder.start();
+        };
+
+        stopBtn.onclick = () => {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                recordBtn.disabled = false;
+                stopBtn.disabled = true;
+                status.textContent = '處理錄音...';
+                downloadMp3Btn.style.display = 'none';
+            }
+        };
+
+        // 錄音轉文字按鈕暫不實作功能
+        transcribeBtn.onclick = () => {
+            transcribeResult.textContent = '（尚未實作錄音轉文字功能）';
+        };
+    </script>
+</body>
+</html>
