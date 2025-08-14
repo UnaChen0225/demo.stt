@@ -23,7 +23,7 @@
             width: 100%;
             max-width: 900px;
             margin-top: 80px;
-            gap: 32px;
+            gap:15px;
         }
         .container, .workspace {
             background: #fff;
@@ -91,7 +91,7 @@
             width: 100%;
         }
         button:active {
-            color: #3c5c8d;
+            color: #fff3ac;
         }
         button:hover {
             background: #c4d8ed;
@@ -111,6 +111,11 @@
     <div class="main-layout">
         <div class="container">
             <h1>錄音系統</h1>
+            <div style="margin-bottom: 18px;">
+                <input type="file" id="uploadAudioInput" accept="audio/*" style="display:none;">
+                <button id="uploadAudioBtn" style="width: 250px;">上傳並轉成文字</button>
+                <div id="uploadStatus" style="margin-top: 8px; color: #475569; font-size: 0.98rem;"></div>
+            </div>
             <div class="rec-btn-group">
                 <button id="recordBtn">開始錄音</button>
                 <button id="stopBtn" disabled>停止錄音</button>
@@ -123,13 +128,18 @@
             <label for="textFileSelect">選擇文字檔：</label>
             <select id="textFileSelect">
                 <option value="">-- 請選擇 --</option>
-                <option value="file1.txt">file1.txt</option>
+                <option value="/static/file1.txt">file1.txt</option>
                 <option value="file2.txt">file2.txt</option>
             </select>
             <div id="transcribeSection" style="margin-top:12px;">
-                <button id="transcribeBtn">錄音轉文字</button>
-                <div id="transcribeResult" style="margin-top:16px; color:#334155; min-height: 160px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; padding: 18px; text-align: left; font-size: 1.15rem; line-height: 1.7;"></div>
+                <div id="transcribeResult" style="margin-top:16px; color:#334155; min-height: 300px; max-height: 300px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; padding: 18px; text-align: left; font-size: 1.15rem; line-height: 1.7;"></div>
             </div>
+        </div>
+        <div class="workspace" id="llmWorkspace">
+            <label>會議記錄生成：</label>
+            <textarea id="llmPrompt" placeholder="請輸入提示詞（Prompt）..." style="width:100%; min-height: 60px; margin-bottom: 3px; border-radius: 8px; border: 1px solid #cbd5e1; padding: 8px; font-size: 1rem;"></textarea>
+            <button id="generateMeetingBtn" style="margin-bottom: 6px;">生成會議記錄</button>
+            <div id="llmResult" style="margin-top:8px; color:#334155; min-height: 235px; max-height: 235px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; padding: 18px; text-align: left; font-size: 1.15rem; line-height: 1.7; word-break: break-all; overflow-wrap: break-word;"></div>
         </div>
     </div>
     <script>
@@ -140,13 +150,80 @@
         const status = document.getElementById('status');
         const audioPlayback = document.getElementById('audioPlayback');
         const downloadMp3Btn = document.getElementById('downloadMp3Btn');
-        const transcribeSection = document.getElementById('transcribeSection');
-        const transcribeBtn = document.getElementById('transcribeBtn');
-        const transcribeResult = document.getElementById('transcribeResult');
-        const textFileSelect = document.getElementById('textFileSelect');
+    const transcribeSection = document.getElementById('transcribeSection');
+    const transcribeResult = document.getElementById('transcribeResult');
+    const textFileSelect = document.getElementById('textFileSelect');
+    const uploadAudioBtn = document.getElementById('uploadAudioBtn');
+    const uploadAudioInput = document.getElementById('uploadAudioInput');
+    const uploadStatus = document.getElementById('uploadStatus');
+        // 上傳音檔並模擬轉文字
+        uploadAudioBtn.addEventListener('click', function() {
+            uploadAudioInput.value = '';
+            uploadAudioInput.click();
+        });
+
+        uploadAudioInput.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                const file = this.files[0];
+                uploadStatus.textContent = '已選擇檔案：' + file.name + '，正在轉換...';
+                // 模擬轉文字
+                setTimeout(() => {
+                    transcribeResult.textContent = '（模擬）已將 ' + file.name + ' 轉成文字內容...';
+                    uploadStatus.textContent = '轉換完成';
+                }, 1500);
+            } else {
+                uploadStatus.textContent = '';
+            }
+        });
+    const generateMeetingBtn = document.getElementById('generateMeetingBtn');
+    const llmResult = document.getElementById('llmResult');
+    const llmPrompt = document.getElementById('llmPrompt');
+        // 生成會議記錄（POST 到 Ollama）
+        generateMeetingBtn.addEventListener('click', async function() {
+            const input = transcribeResult.textContent.trim();
+            const prompt = llmPrompt.value.trim();
+            if (!input) {
+                llmResult.textContent = '請先選擇並載入文字檔案';
+                return;
+            }
+            llmResult.textContent = '正在向 Ollama 生成會議記錄...';
+            try {
+                const response = await fetch('http://localhost:11434/api/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model: 'llama3', // 依你的模型名稱調整
+                        prompt: '請將以下會議逐字稿改現成會議記錄，需要有討論主題、討論內容(使用要點式的方式)、結論、跟下次追踨事項。使用者的需求為' + prompt +'/n會議逐字稿：'+ input + '\n',
+                        stream: false
+                    })
+                });
+                if (!response.ok) throw new Error('Ollama API 回應失敗');
+                const data = await response.json();
+                llmResult.textContent = data.response || JSON.stringify(data);
+            } catch (e) {
+                llmResult.textContent = 'Ollama 產生失敗：' + e.message;
+            }
+        });
 
         // 預設顯示空白，區域始終存在
         transcribeResult.textContent = '';
+
+        // 選擇檔案後載入內容顯示
+        textFileSelect.addEventListener('change', async function() {
+            const fileName = this.value;
+            if (!fileName) {
+                transcribeResult.textContent = '';
+                return;
+            }
+            try {
+                const response = await fetch(fileName);
+                if (!response.ok) throw new Error('無法載入檔案');
+                const text = await response.text();
+                transcribeResult.textContent = text;
+            } catch (e) {
+                transcribeResult.textContent = '載入檔案失敗：' + e.message;
+            }
+        });
 
         recordBtn.onclick = async () => {
             if (!navigator.mediaDevices) {
@@ -184,10 +261,7 @@
             }
         };
 
-        // 錄音轉文字按鈕暫不實作功能
-        transcribeBtn.onclick = () => {
-            transcribeResult.textContent = '（尚未實作錄音轉文字功能）';
-        };
+
     </script>
 </body>
 </html>
