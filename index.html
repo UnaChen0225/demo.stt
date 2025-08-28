@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>資深哈利波特專家</title>
-  <style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot</title>
+    <style>
     body {
       background: linear-gradient(135deg, #f3e6ff 60%, #d1b3ff 100%);
       font-family: Arial, sans-serif;
@@ -145,20 +146,71 @@
     .chat-input button:hover {
       background: rgba(75, 0, 110, 0.9);
     }
+    .chat-input select {
+      border: 1px solid rgba(209, 179, 255, 0.5);
+      border-radius: 6px;
+      padding: 8px;
+      font-size: 15px;
+      outline: none;
+      background: rgba(243, 230, 255, 0.7);
+      margin-right: 8px; /* 增加與輸入框的間隔 */
+      color: #4b006e;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .chat-input select:hover {
+      background: rgba(243, 230, 255, 0.9); /* 滑鼠懸停時的背景色 */
+    }
+
+    .icon-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 20%;
+      background: rgba(182, 152, 233, 0.85);
+      color: #fff;
+      cursor: pointer;
+      margin-left: 8px;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .icon-btn:hover {
+      background: rgba(75, 0, 110, 0.9);
+      transform: scale(1.05);
+    }
   </style>
 </head>
 <body>
-  <div class="main-container">
+    <div class="main-container">
     <div class="workspace">
       <h2>工作區</h2>
-      <button>新增聊天室</button>
     </div>
     <div class="chat-container">
-      <div class="chat-header">資深哈利波特專家</div>
+      <div class="chat-header">聊天機器人</div>
       <div class="chat-messages" id="chatMessages"></div>
       <form class="chat-input" id="chatForm" autocomplete="off">
+        <select id="userSelect">
+          <option value="user1">test_category</option>
+          <option value="user2">Harry_database</option>
+        </select>
         <input type="text" id="userInput" placeholder="輸入訊息..." required />
-        <button type="submit">送出</button>
+        <button type="submit">Send</button>
+          <!-- 隱藏的 input -->
+  <input type="file" id="fileInput" accept="audio/*" style="display: none;" />
+
+  <!-- 貼上迴紋針圖示 -->
+      <label for="fileInput" class="icon-btn" title="上傳音檔">
+        <!-- SVG 迴紋針 -->
+        <svg xmlns="http://www.w3.org/2000/svg" 
+            width="22" height="22" viewBox="0 0 24 24" 
+            fill="none" stroke="currentColor" 
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21.44 11.05 12.12 20.37a5 5 0 0 1-7.07-7.07L14.34 4.21a3 3 0 0 1 4.24 4.24L8.93 18.1"/>
+        </svg>
+      </label>
       </form>
     </div>
   </div>
@@ -166,6 +218,7 @@
     const chatMessages = document.getElementById('chatMessages');
     const chatForm = document.getElementById('chatForm');
     const userInput = document.getElementById('userInput');
+    const type = document.getElementById('userSelect');
 
     function appendMessage(text, sender) {
       const msgDiv = document.createElement('div');
@@ -179,11 +232,11 @@
     }
 
 
-    async function botReply(userText) {
+    async function botReply(userText, q_type) {
       // 這裡可以改成呼叫 API 或更複雜的回應
       //let reply = '你說的是：「' + userText + '」';
-      const apiUrl = "https://d6m35omzu4.execute-api.us-east-1.amazonaws.com/default/demo0820";
-      const data={prompt:userText};
+      const apiUrl = "https://3khdja15sc.execute-api.us-east-1.amazonaws.com/default/demo0820";
+      const data={type:q_type, prompt:userText };
 
       try {
         const response = await fetch(apiUrl, {
@@ -199,7 +252,7 @@
         }
 
         const result = await response.json();
-        const reply = result.response || '伺服器無法回應，請稍後再試。'; // 假設 Lambda 回傳的 JSON 格式中有 `response` 欄位
+        const reply = result.response.replace("\n", "<br>")|| '伺服器無法回應，請稍後再試。'; // 假設 Lambda 回傳的 JSON 格式中有 `response` 欄位
         console.log('機器人回覆:', reply);
         appendMessage(reply, 'bot');
       } catch (error) {
@@ -211,16 +264,17 @@
     chatForm.addEventListener('submit', function(e) {
       e.preventDefault();
       const text = userInput.value.trim();
+      const type2 = userSelect.value;
       if (text) {
         appendMessage(text, 'user');
         userInput.value = '';
-        setTimeout(() => botReply(text), 600);
+        setTimeout(() => botReply(text, type2), 600);
       }
     });
   </script>
 </body>
-
 </html>
+
 
 
 
